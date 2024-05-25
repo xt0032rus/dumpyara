@@ -52,7 +52,7 @@ else
     [[ -e "$URL" ]] || { echo "Invalid Input" && exit 1; }
 fi
 
-ORG=Jiovanni-dump #your GitHub org name
+ORG=xt0032rus #your GitHub org name
 FILE=$(echo ${URL##*/} | inline-detox)
 EXTENSION=$(echo ${URL##*.} | inline-detox)
 UNZIP_DIR=${FILE/.$EXTENSION/}
@@ -88,7 +88,7 @@ fi
 
 # Extract boot.img
 if [[ -f "$PROJECT_DIR"/working/"${UNZIP_DIR}"/boot.img ]]; then
-    extract-dtb "$PROJECT_DIR"/working/"${UNZIP_DIR}"/boot.img -o "$PROJECT_DIR"/working/"${UNZIP_DIR}"/bootimg > /dev/null # Extract boot
+    extract-dtb "$PROJECT_DIR"/working/"${UNZIP_DIR}"/boot.img -o "$PROJECT_DIR"/working/"${UNZIP_DIR}"/boot.img > /dev/null # Extract boot
     bash "$PROJECT_DIR"/mkbootimg_tools/mkboot "$PROJECT_DIR"/working/"${UNZIP_DIR}"/boot.img "$PROJECT_DIR"/working/"${UNZIP_DIR}"/boot > /dev/null 2>&1
     echo 'boot extracted'
     # extract-ikconfig
@@ -109,9 +109,9 @@ fi
 
 # Extract dts
 mkdir -p "$PROJECT_DIR"/working/"${UNZIP_DIR}"/bootdts
-dtb_list=$(find "$PROJECT_DIR"/working/"${UNZIP_DIR}"/bootimg -name '*.dtb' -type f -printf '%P\n' | sort)
+dtb_list=$(find "$PROJECT_DIR"/working/"${UNZIP_DIR}"/boot.img -name '*.dtb' -type f -printf '%P\n' | sort)
 for dtb_file in $dtb_list; do
-    dtc -I dtb -O dts -o "$(echo "$PROJECT_DIR"/working/"${UNZIP_DIR}"/bootdts/"$dtb_file" | sed -r 's|.dtb|.dts|g')" "$PROJECT_DIR"/working/"${UNZIP_DIR}"/bootimg/"$dtb_file" > /dev/null 2>&1
+    dtc -I dtb -O dts -o "$(echo "$PROJECT_DIR"/working/"${UNZIP_DIR}"/bootdts/"$dtb_file" | sed -r 's|.dtb|.dts|g')" "$PROJECT_DIR"/working/"${UNZIP_DIR}"/boot.img/"$dtb_file" > /dev/null 2>&1
 done
 
 # extract PARTITIONS
@@ -246,10 +246,7 @@ if [[ -n $GIT_OAUTH_TOKEN ]]; then
     curl --silent --fail "https://raw.githubusercontent.com/$ORG/$repo/$branch/all_files.txt" 2> /dev/null && echo "Firmware already dumped!" && exit 1
     git init
     if [[ -z "$(git config --get user.email)" ]]; then
-        git config user.email giovanniricca@duck.com
-    fi
-    if [[ -z "$(git config --get user.name)" ]]; then
-        git config user.name Jiovanni-bot
+        git config user.email andrey.denikin8@gmail.com
     fi
     git config http.postBuffer 157286400
     curl -s -X POST -H "Authorization: token ${GIT_OAUTH_TOKEN}" -d '{ "name": "'"$repo"'" }' "https://api.github.com/orgs/${ORG}/repos" #create new repo
@@ -282,7 +279,7 @@ done < compressed_files.txt
 EOF
     chmod +x extract_files.sh
     git add --all
-    git reset HEAD -- system/ vendor/ product/ odm/ my_*/
+    git reset HEAD -- system/ vendor/ product/ odm/
     git commit -asm "Add extras for ${description}" && "${GITPUSH[@]}"
     git add vendor/
     git commit -asm "Add vendor for ${description}" && "${GITPUSH[@]}"
@@ -300,30 +297,7 @@ EOF
     git commit -asm "Add product priv-app for ${description}" && "${GITPUSH[@]}"
     git add product/
     git commit -asm "Add product for ${description}" && "${GITPUSH[@]}"
-    git add my_*/
-    git commit -asm "Add oplus for ${description}" && "${GITPUSH[@]}"
 else
     echo "Dump done locally."
     exit 1
-fi
-
-# Telegram channel
-TG_TOKEN=$(< "$PROJECT_DIR"/.tgtoken)
-if [[ -n "$TG_TOKEN" ]]; then
-    CHAT_ID="@jiovanni_dumps"
-    commit_head=$(git log --format=format:%H | head -n 1)
-    commit_link="https://github.com/$ORG/$repo/commit/$commit_head"
-    echo -e "Sending telegram notification"
-    printf "<b>Brand: %s</b>" "$brand" >| "$PROJECT_DIR"/working/tg.html
-    {
-        printf "\n<b>Device: %s</b>" "$codename"
-        printf "\n<b>Version:</b> %s" "$release"
-        printf "\n<b>Fingerprint:</b> %s" "$fingerprint"
-        printf "\n<b>GitHub:</b>"
-        printf "\n<a href=\"%s\">Commit</a>" "$commit_link"
-        printf "\n<a href=\"https://github.com/%s/%s/tree/%s/\">%s</a>" "$ORG" "$repo" "$branch" "$codename"
-    } >> "$PROJECT_DIR"/working/tg.html
-    TEXT=$(< "$PROJECT_DIR"/working/tg.html)
-    curl -s "https://api.telegram.org/bot${TG_TOKEN}/sendmessage" --data "text=${TEXT}&chat_id=${CHAT_ID}&parse_mode=HTML&disable_web_page_preview=True" > /dev/null
-    rm -rf "$PROJECT_DIR"/working/tg.html
 fi
